@@ -2,14 +2,11 @@ import urllib
 import urllib2
 from django.conf import settings
 
-class AuthenticationMiddleware(object):
 
+class AuthenticationMiddleware(object):
     def process_request(self, request):
         token = request.GET.get('token', '')
-        auth_request = urllib2.Request("http://{0}:{1}/check-token/".format(
-            settings.OIPA_AUTH_SETTINGS['HOST'],
-            settings.OIPA_AUTH_SETTINGS['PORT'])
-        )
+        auth_request = urllib2.Request(_generate_uri())
         data = {
             "token": token,
             "request": request.path_info,
@@ -18,11 +15,14 @@ class AuthenticationMiddleware(object):
 
         auth_request.add_data(urllib.urlencode(data))
         response = urllib2.urlopen(auth_request)
-
-        #Prints the response
-        # import pprint
-        # import json
-        # response_parsed = json.loads(response.read())
-        # pp = pprint.PrettyPrinter(indent=4)
-        # pp.pprint(response_parsed)
         return None
+
+
+def _generate_uri():
+    host = settings.OIPA_AUTH_SETTINGS['HOST']
+    uri = 'http://{0}'.format(host)
+    if 'PORT' in settings.OIPA_AUTH_SETTINGS:
+        port = settings.OIPA_AUTH_SETTINGS['PORT']
+        uri = '{0}:{1}'.format(uri, port)
+    uri = '{0}/check-token/'.format(uri)
+    return uri
