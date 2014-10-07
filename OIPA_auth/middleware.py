@@ -1,6 +1,8 @@
 import urllib
 import urllib2
+
 from django.conf import settings
+from django.http import HttpResponse
 
 
 class AuthenticationMiddleware(object):
@@ -14,7 +16,13 @@ class AuthenticationMiddleware(object):
         }
 
         auth_request.add_data(urllib.urlencode(data))
-        response = urllib2.urlopen(auth_request)
+        try:
+            response = urllib2.urlopen(auth_request)
+        except urllib2.HTTPError, err:
+            if err.code == 401:
+                return HttpResponse('Unauthorized', status=401)
+            else:
+                raise err
         return None
 
 
