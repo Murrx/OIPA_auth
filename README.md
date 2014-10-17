@@ -8,6 +8,8 @@ This middleware allows authentication and authoriasation in OIPA's API by using 
 After installation each api call made to OIPA gets intercepted by this middleware. The provided key gets validated in SSO-Django.
 If the key is valid the request is processed. If not, the user gets an Unauthorised response.
 
+![Application flow](https://raw.githubusercontent.com/Murrx/OIPA_auth/master/images/Simple%20Flow.png)
+
 Installation instructions
 -------------------------
 Clone this repository
