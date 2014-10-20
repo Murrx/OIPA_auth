@@ -7,52 +7,62 @@ from django.http import HttpResponse
 
 class AuthenticationMiddleware(object):
     def process_view(self, request, view_func, view_args, view_kwargs):
+        """Handles user authentication. If the provided token is invalid a 401(unauthorized) response is returned"""
         if _call_blacklisted(view_kwargs):
-            request.valid_token = False
-            token = request.GET.get('token', '')
-            auth_request = urllib2.Request(_generate_uri('check-token'))
-            data = {
-                "token": token,
-                "request": request.path_info,
-                "method": request.method,
-            }
-            auth_request.add_data(urllib.urlencode(data))
-            try:
-                urllib2.urlopen(auth_request)
-                request.valid_token = True
-            except urllib2.HTTPError, err:
-                if err.code == 401:
-                    return HttpResponse('Unauthorized', status=401)
-                else:
-                    raise err
-        return None
+            request.valid_token = _authenticate_user(request.GET.get('token', ''))
+        return None if (not _call_blacklisted(view_kwargs) or request.valid_token) \
+            else HttpResponse('Unauthorized', status=401)
 
 
 class AuthorizationMiddleware(object):
     def process_view(self, request, view_func, view_args, view_kwargs):
+        """Handles user authorization. If SSO authorization fails a 401 response is returned"""
         if _call_blacklisted(view_kwargs) and request.valid_token:
-            reg_request = urllib2.Request(_generate_uri('register-call'))
+            auth_request = urllib2.Request(_generate_request_uri('authorize-call'))
             data = {
+                "token": request.GET.get('token', ''),
                 "request": request.path_info,
                 "method": request.method,
             }
-            reg_request.add_data(urllib.urlencode(data))
-            urllib2.urlopen(reg_request)
+            auth_request.add_data(urllib.urlencode(data))
+            urllib2.urlopen(auth_request)
             return None
-        elif not _call_blacklisted(view_kwargs):
-            return None
-        elif not request.valid_token:
-            return HttpResponse('Unauthorized', status=401)
+        else:
+            return HttpResponse('Unauthorized', status=401) if _call_blacklisted(view_kwargs) else None
 
 
-def _generate_uri(function_path):
+def _authenticate_user(token):
+    """Authenticate the user based on the provided token"""
+    auth_request = urllib2.Request(_generate_request_uri('validate-token'))
+    data = {
+        "token": token,
+    }
+    auth_request.add_data(urllib.urlencode(data))
+    try:
+        urllib2.urlopen(auth_request)
+    except urllib2.HTTPError, err:
+        if err.code == 401:
+            return False
+        else:
+            raise err
+    return True
+
+
+def _generate_request_uri(function_path):
+    """Generate a uri for the request based on function called"""
+    return '{0}{1}/'.format(_generate_sso_host_uri(), function_path)
+
+
+def _generate_sso_host_uri():
+    """Generates uri for the sso_host based on django settings"""
     host = settings.OIPA_AUTH_SETTINGS['HOST']
     uri = 'http://{0}'.format(host)
     if 'PORT' in settings.OIPA_AUTH_SETTINGS:
         port = settings.OIPA_AUTH_SETTINGS['PORT']
         uri = '{0}:{1}'.format(uri, port)
-    uri = '{0}/{1}/'.format(uri, function_path)
-    return uri
+    return '{0}/'.format(uri)
+
 
 def _call_blacklisted(view_kwargs):
+    """Determines if a call is blacklisted or not"""
     return 'api_name' in view_kwargs
