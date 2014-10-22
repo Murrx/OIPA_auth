@@ -1,2 +1,4 @@
 Django==1.7
 Pytest
+importlib
+-e .
