@@ -25,7 +25,7 @@ class AuthorizationMiddleware(object):
                 "method": request.method,
             }
             auth_request.add_data(urllib.urlencode(data))
-            urllib2.urlopen(auth_request)
+            _send_request(auth_request)
             return None
         else:
             return HttpResponse('Unauthorized', status=401) if _call_blacklisted(view_kwargs) else None
@@ -39,7 +39,7 @@ def _authenticate_user(token):
     }
     auth_request.add_data(urllib.urlencode(data))
     try:
-        urllib2.urlopen(auth_request)
+        _send_request(auth_request)
     except urllib2.HTTPError, err:
         if err.code == 401:
             return False
@@ -50,7 +50,7 @@ def _authenticate_user(token):
 
 def _generate_request_uri(function_path):
     """Generate a uri for the request based on function called"""
-    return '{0}{1}/'.format(_generate_sso_host_uri(), function_path)
+    return '{0}{1}'.format(_generate_sso_host_uri(), _generate_function_path(function_path))
 
 
 def _generate_sso_host_uri():
@@ -63,6 +63,15 @@ def _generate_sso_host_uri():
     return '{0}/'.format(uri)
 
 
+def _generate_function_path(function_path):
+    return '{0}/'.format(function_path)
+
+
 def _call_blacklisted(view_kwargs):
     """Determines if a call is blacklisted or not"""
     return 'api_name' in view_kwargs
+
+
+def _send_request(request):
+    """simple encapsulation of the urllib.urlopen method call"""
+    return urllib2.urlopen(request)
